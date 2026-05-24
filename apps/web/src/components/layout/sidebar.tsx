@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,7 +38,7 @@ const navItems = [
 export function Sidebar() {
   const t = useTranslations('nav');
   const pathname = usePathname();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, isAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -110,6 +111,25 @@ export function Sidebar() {
               </Link>
             );
           })}
+          {isAdmin && (
+            <>
+              <div className="border-t border-gray-100 my-2" />
+              <Link
+                href="/admin/dashboard"
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive('/admin/dashboard')
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                  collapsed && 'justify-center px-2',
+                )}
+              >
+                <Shield className={cn('h-5 w-5 shrink-0', isActive('/admin/dashboard') ? 'text-brand-600' : 'text-gray-400')} />
+                {!collapsed && <span>Admin Panel</span>}
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Collapse toggle (desktop only) */}
