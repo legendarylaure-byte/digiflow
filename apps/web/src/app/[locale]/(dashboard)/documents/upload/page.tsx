@@ -1,18 +1,23 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, X, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { AutoFillBanner } from '@/components/ai/auto-fill-banner';
+import { uploadAndExtract } from '@/lib/ai/extractor';
+import { db } from '@/lib/firebase/config';
+import { collection, addDoc } from 'firebase/firestore';
+import { auth } from '@/lib/firebase/config';
 
 export default function UploadDocumentPage() {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [supportingDocs, setSupportingDocs] = useState<File[]>([]);
 
   const [formData, setFormData] = useState({
@@ -35,15 +40,69 @@ export default function UploadDocumentPage() {
     if (dropped) setFile(dropped);
   }, []);
 
+  const handleAutoFillResults = useCallback(
+    (results: { name: string; description: string; documentType: string; department: string; fiscalYear: string; isConfidential: boolean }) => {
+      setFormData((prev) => ({
+        ...prev,
+        name: results.name || prev.name,
+        description: results.description || prev.description,
+        documentType: results.documentType || prev.documentType,
+        department: results.department || prev.department,
+        fiscalYear: results.fiscalYear || prev.fiscalYear,
+        isConfidential: results.isConfidential,
+      }));
+    },
+    [],
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) { toast.error('Please select a file to upload'); return; }
+    if (!auth.currentUser) { toast.error('You must be logged in'); return; }
+
     setUploading(true);
-    // TODO: Implement actual upload to Firebase Storage
-    await new Promise((r) => setTimeout(r, 1500));
-    toast.success('Document uploaded successfully');
-    setUploading(false);
+    setUploadProgress(0);
+
+    try {
+      const { storagePath, downloadUrl } = await uploadAndExtract(file, (progress) => {
+        setUploadProgress(Math.round(progress));
+      });
+
+      await addDoc(collection(db, 'documents'), {
+        name: formData.name,
+        description: formData.description,
+        documentType: formData.documentType,
+        department: formData.department,
+        fiscalYear: formData.fiscalYear,
+        isConfidential: formData.isConfidential,
+        filePath: storagePath,
+        fileUrl: downloadUrl,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        uploadedBy: auth.currentUser.uid,
+        uploadedByName: auth.currentUser.displayName || auth.currentUser.email,
+        uploadedAt: new Date(),
+        status: 'draft',
+      });
+
+      toast.success('Document uploaded successfully');
+      setFile(null);
+      setFormData({
+        name: '', description: '', documentType: '', department: '',
+        fiscalYear: '2026', isConfidential: false,
+        recommender1: '', recommender2: '', recommender3: '', approver: '',
+      });
+      setSupportingDocs([]);
+    } catch (error: any) {
+      toast.error(error.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
+
+  const fileSizeMb = file ? (file.size / 1024 / 1024).toFixed(2) : '0';
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -91,7 +150,7 @@ export default function UploadDocumentPage() {
                   <FileText className="h-8 w-8 text-brand-600" />
                   <div>
                     <p className="font-medium text-gray-900">{file.name}</p>
-                    <p className="text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="text-sm text-gray-500">{fileSizeMb} MB</p>
                   </div>
                 </div>
                 <button type="button" onClick={() => setFile(null)} className="rounded-full p-1 hover:bg-gray-200">
@@ -101,6 +160,9 @@ export default function UploadDocumentPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Auto-Fill Banner */}
+        <AutoFillBanner file={file} onResults={handleAutoFillResults} disabled={uploading} />
 
         {/* Supporting Documents */}
         <Card>
@@ -224,9 +286,18 @@ export default function UploadDocumentPage() {
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full" size="lg" disabled={uploading}>
-          {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          {uploading ? 'Uploading...' : 'Upload & Set Properties'}
+        <Button type="submit" className="w-full" size="lg" disabled={uploading || !file}>
+          {uploading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Uploading... {uploadProgress}%</span>
+            </div>
+          ) : (
+            <>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload & Set Properties
+            </>
+          )}
         </Button>
       </form>
     </div>

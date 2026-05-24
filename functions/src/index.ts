@@ -135,7 +135,7 @@ export const sendEmail = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
-  const { default: handleSendEmail } = await import('./email/send');
+  const { handleSendEmail } = await import('./email/send');
   return handleSendEmail(data, context);
 });
 
