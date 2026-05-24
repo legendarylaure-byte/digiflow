@@ -1,12 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
-import { loginWithEmail, loginWithGoogleRedirect, checkRedirectResult } from '@/lib/firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config';
+import { loginWithEmail, loginWithGoogle } from '@/lib/firebase/auth';
 import { spaceGrotesk } from '@/lib/fonts';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
@@ -35,48 +32,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [taglineIdx, setTaglineIdx] = useState(0);
   const taglineRef = useRef<HTMLSpanElement>(null);
-  const authCheckDone = useRef(false);
+  const authRedirectDone = useRef(false);
 
   const tagline = 'Intelligent Workflow. Infinite Possibilities.';
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user && !authCheckDone.current) {
-        authCheckDone.current = true;
-        window.location.href = '/en/dashboard';
-      }
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (authCheckDone.current) return;
-    if (!authLoading && isAuthenticated) {
-      authCheckDone.current = true;
+    if (!authLoading && isAuthenticated && !authRedirectDone.current) {
+      authRedirectDone.current = true;
       window.location.href = '/en/dashboard';
-      return;
     }
-    if (!authLoading && !isAuthenticated) {
-      checkRedirectResult().then((user) => {
-        if (user) {
-          authCheckDone.current = true;
-          window.location.href = '/en/dashboard';
-          toast.success(t('loginTitle'));
-        }
-      }).catch((error: any) => {
-        if (error.code === 'auth/credential-already-in-use') {
-          authCheckDone.current = true;
-          window.location.href = '/en/dashboard';
-        } else {
-          console.error('Redirect sign-in error:', error);
-        }
-      });
-    }
-  }, [isAuthenticated, authLoading, router, t]);
+  }, [isAuthenticated, authLoading]);
 
   useEffect(() => {
     if (!taglineRef.current) return;
@@ -107,9 +75,22 @@ export default function LoginPage() {
     }
   }
 
-  function handleGoogleLogin() {
+  async function handleGoogleLogin() {
     setLoading(true);
-    loginWithGoogleRedirect();
+    try {
+      await loginWithGoogle();
+      if (!authRedirectDone.current) {
+        authRedirectDone.current = true;
+        window.location.href = '/en/dashboard';
+      }
+    } catch (error: any) {
+      if (error.code !== 'auth/popup-closed-by-user') {
+        console.error('Google login error:', error);
+        toast.error('Failed to sign in with Google');
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
