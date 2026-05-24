@@ -22,12 +22,12 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    if (tokenData.expiresAt.toDate() < now) {
+    const expiresAt = tokenData.expiresAt?.toDate?.() || new Date(tokenData.expiresAt);
+    if (expiresAt < now) {
       await tokenRef.update({ status: 'expired' });
       return NextResponse.json({ error: 'Token expired' }, { status: 400 });
     }
 
-    // Process the action
     const documentId = tokenData.documentId;
     const userId = tokenData.userId;
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const currentStep = workflowData.currentStep;
     const steps = workflowData.steps;
 
-    if (steps[currentStep]?.userId !== userId) {
+    if (steps?.[currentStep]?.userId !== userId) {
       return NextResponse.json({ error: 'Not your turn in the workflow' }, { status: 403 });
     }
 
@@ -75,32 +75,16 @@ export async function POST(req: NextRequest) {
           approvedComment: comment || '',
           nextApprover: null,
         });
-        await workflowRef.update({
-          status: 'completed',
-          [`steps.${currentStep}.status`]: 'approved',
-          [`steps.${currentStep}.completedAt`]: new Date(),
-          [`steps.${currentStep}.comment`]: comment || '',
-        });
+        await workflowRef.update({ status: 'completed', [`steps.${currentStep}.status`]: 'approved', [`steps.${currentStep}.completedAt`]: new Date(), [`steps.${currentStep}.comment`]: comment || '' });
       } else {
         const nextStep = currentStep + 1;
-        const nextUserId = steps[nextStep].userId;
-        await docRef.update({
-          status: 'in_progress',
-          currentApprover: nextUserId,
-        });
-        await workflowRef.update({
-          currentStep: nextStep,
-          [`steps.${currentStep}.status`]: 'recommended',
-          [`steps.${currentStep}.completedAt`]: new Date(),
-          [`steps.${currentStep}.comment`]: comment || '',
-        });
+        await docRef.update({ status: 'in_progress', currentApprover: steps[nextStep].userId });
+        await workflowRef.update({ currentStep: nextStep, [`steps.${currentStep}.status`]: 'recommended', [`steps.${currentStep}.completedAt`]: new Date(), [`steps.${currentStep}.comment`]: comment || '' });
       }
     }
 
-    // Mark token as used
     await tokenRef.update({ status: 'used' });
 
-    // Log audit
     await db.collection('audit_logs').add({
       action: `workflow.${action}`,
       userId,
@@ -114,11 +98,7 @@ export async function POST(req: NextRequest) {
       timestamp: new Date(),
     });
 
-    return NextResponse.json({
-      success: true,
-      action,
-      documentName: docData.name,
-    });
+    return NextResponse.json({ success: true, action, documentName: docData.name });
   } catch (error) {
     console.error('Action processing failed:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
