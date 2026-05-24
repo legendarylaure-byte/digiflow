@@ -1,6 +1,8 @@
 import * as functions from 'firebase-functions';
 import { db } from '../utils/firebase';
 import { logAuditEntry } from '../security/audit-logger';
+import { handleSendEmail, generateApprovalEmail } from '../email/send';
+import crypto from 'crypto';
 
 interface ApproveActionInput {
   documentId: string;
@@ -68,11 +70,45 @@ export default async function handleApproveAction(
   } else {
     const nextStep = currentStepIndex + 1;
     const nextUserId = steps[nextStep].userId;
+    const nextStepData = steps[nextStep];
+    const token = crypto.randomBytes(32).toString('hex');
+    const baseUrl = process.env.APP_URL || 'https://digiflow.vercel.app';
+
+    await db.collection('action_tokens').doc(token).set({
+      token,
+      documentId,
+      userId: nextStepData.userId,
+      userEmail: nextStepData.email,
+      action: 'approve',
+      status: 'pending',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    try {
+      await handleSendEmail(
+        {
+          to: nextStepData.email,
+          subject: `Approval Required: ${doc.data()?.name}`,
+          html: generateApprovalEmail({
+            documentName: doc.data()?.name || 'Document',
+            documentType: doc.data()?.documentType || 'Document',
+            department: doc.data()?.department || 'General',
+            uploadedBy: doc.data()?.uploadedByName || 'Unknown',
+            description: doc.data()?.description || '',
+            approveUrl: `${baseUrl}/en/approve/${token}`,
+            returnUrl: `${baseUrl}/en/return/${token}`,
+          }),
+        },
+        context,
+      );
+    } catch (err) {
+      functions.logger.warn('Failed to send email to next approver', err);
+    }
+
     await docRef.update({
       status: 'in_progress',
       currentApprover: nextUserId,
-      [`recommenders.${currentStepIndex}.status`]: 'approved',
-      [`recommenders.${currentStepIndex}.comment`]: comment,
     });
     await workflowRef.update({
       currentStep: nextStep,
