@@ -1,0 +1,29 @@
+{
+  "common": {
+    "app": "DigiFlow Admin",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "search": "Search..."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "roles": "Roles",
+    "workflow": "Workflow",
+    "departments": "Departments",
+    "analytics": "Analytics",
+    "audit": "Audit Log",
+    "notifications": "Notifications",
+    "aiConfig": "AI Configuration",
+    "backup": "Backup & Recovery"
+  },
+  "dashboard": {
+    "title": "Admin Dashboard",
+    "totalUsers": "Total Users",
+    "activeDocuments": "Active Documents",
+    "pendingApprovals": "Pending Approvals",
+    "systemHealth": "System Health",
+    "avgApprovalTime": "Avg. Approval Time"
+  }
+}

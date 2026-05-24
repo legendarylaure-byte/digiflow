@@ -1,0 +1,29 @@
+{
+  "common": {
+    "app": "DigiFlow प्रशासन",
+    "save": "सुरक्षित गर्नुहोस्",
+    "cancel": "रद्द गर्नुहोस्",
+    "delete": "मेटाउनुहोस्",
+    "search": "खोज्नुहोस्..."
+  },
+  "nav": {
+    "dashboard": "ड्यासबोर्ड",
+    "users": "प्रयोगकर्ताहरू",
+    "roles": "भूमिकाहरू",
+    "workflow": "कार्यप्रवाह",
+    "departments": "विभागहरू",
+    "analytics": "विश्लेषण",
+    "audit": "अडिट लग",
+    "notifications": "सूचनाहरू",
+    "aiConfig": "AI कन्फिगरेसन",
+    "backup": "ब्याकअप र रिकभरी"
+  },
+  "dashboard": {
+    "title": "प्रशासन ड्यासबोर्ड",
+    "totalUsers": "कुल प्रयोगकर्ताहरू",
+    "activeDocuments": "सक्रिय कागजातहरू",
+    "pendingApprovals": "पेन्डिङ स्वीकृतिहरू",
+    "systemHealth": "प्रणाली स्वास्थ्य",
+    "avgApprovalTime": "औसत स्वीकृति समय"
+  }
+}
