@@ -10,7 +10,7 @@ import {
 } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthChange, logout as firebaseLogout } from '@/lib/firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import type { User as AppUser } from '@digiflow/shared';
 
@@ -39,23 +39,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (uid: string) => {
-    try {
-      const docRef = doc(db, 'users', uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setProfile(docSnap.data() as AppUser);
-      }
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-    }
-  }, []);
-
   useEffect(() => {
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        await fetchProfile(firebaseUser.uid);
+        try {
+          const docRef = doc(db, 'users', firebaseUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setProfile(docSnap.data() as unknown as AppUser);
+          } else if (firebaseUser.email) {
+            const checkSnap = await getDocs(query(collection(db, 'users'), limit(1)));
+            const isFirstUser = checkSnap.empty;
+            const newProfile = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || firebaseUser.email.split('@')[0] || 'User',
+              role: isFirstUser ? 'admin' : 'viewer',
+              department: '',
+              designation: '',
+              phone: '',
+              language: 'en' as const,
+              isActive: true,
+              company: '',
+              division: '',
+              manager: null,
+              mfaEnabled: false,
+              deviceFingerprint: [],
+              delegatedTo: null,
+              lastLogin: serverTimestamp(),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            };
+            await setDoc(doc(db, 'users', firebaseUser.uid), newProfile);
+            setProfile(newProfile as unknown as AppUser);
+          }
+        } catch (error) {
+          console.error('Failed to fetch/create user profile:', error);
+        }
       } else {
         setProfile(null);
       }
@@ -63,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return unsubscribe;
-  }, [fetchProfile]);
+  }, []);
 
   const logout = useCallback(async () => {
     await firebaseLogout();
@@ -73,9 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (user) {
-      await fetchProfile(user.uid);
+      try {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setProfile(docSnap.data() as unknown as AppUser);
+        }
+      } catch (error) {
+        console.error('Failed to refresh profile:', error);
+      }
     }
-  }, [user, fetchProfile]);
+  }, [user]);
 
   const isAuthenticated = !!user;
   const isAdmin = profile?.role === 'admin';
