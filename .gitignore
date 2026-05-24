@@ -8,7 +8,7 @@ node_modules/
 out/
 dist/
 build/
-lib/
+/lib/
 
 # env files
 .env
