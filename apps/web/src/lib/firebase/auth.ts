@@ -3,6 +3,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -27,6 +29,17 @@ export async function loginWithGoogle() {
   provider.setCustomParameters({ prompt: 'select_account' });
   const result = await signInWithPopup(auth, provider);
   return result.user;
+}
+
+export function loginWithGoogleRedirect() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return signInWithRedirect(auth, provider);
+}
+
+export async function checkRedirectResult() {
+  const result = await getRedirectResult(auth);
+  return result?.user ?? null;
 }
 
 export async function logout() {

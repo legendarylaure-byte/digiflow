@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { loginWithEmail, loginWithGoogle } from '@/lib/firebase/auth';
+import { loginWithEmail, loginWithGoogleRedirect, checkRedirectResult } from '@/lib/firebase/auth';
 import { toast } from 'sonner';
 import { Mail, Lock, Loader2 } from 'lucide-react';
 
@@ -17,6 +17,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    checkRedirectResult().then((user) => {
+      if (user) {
+        router.replace('/dashboard');
+        toast.success(t('loginTitle'));
+      }
+    }).catch((error: any) => {
+      if (error.code === 'auth/credential-already-in-use') {
+        router.replace('/dashboard');
+      } else if (error.code !== 'auth/popup-closed-by-user') {
+        console.error('Redirect sign-in error:', error);
+        toast.error('Failed to sign in with Google');
+      }
+    });
+  }, [router, t]);
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -38,24 +54,9 @@ export default function LoginPage() {
     }
   }
 
-  async function handleGoogleLogin() {
+  function handleGoogleLogin() {
     setLoading(true);
-    try {
-      await loginWithGoogle();
-      router.replace('/dashboard');
-      toast.success(t('loginTitle'));
-    } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        console.error('Google login error:', error);
-        if (error.code === 'auth/popup-blocked') {
-          toast.error('Pop-up blocked by browser. Please allow pop-ups for this site.');
-        } else {
-          toast.error('Failed to sign in with Google');
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
+    loginWithGoogleRedirect();
   }
 
   return (
