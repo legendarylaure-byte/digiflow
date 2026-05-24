@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────
+    // Helper functions
+    // ─────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isDocumentParticipant(docId) {
+      let doc = get(/databases/$(database)/documents/documents/$(docId));
+      return doc.data.createdBy.uid == request.auth.uid
+        || doc.data.recommenders.hasAny([request.auth.uid])
+        || doc.data.approver.uid == request.auth.uid;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // ─────────────────────────────────────────────
+    // Users collection
+    // ─────────────────────────────────────────────
+
+    match /users/{uid} {
+      allow read: if isAuthenticated() && (isOwner(uid) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(uid);
+      allow update: if isAuthenticated() && (isOwner(uid) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Documents collection
+    // ─────────────────────────────────────────────
+
+    match /documents/{docId} {
+      allow read: if isAuthenticated() && (isAdmin() || isDocumentParticipant(docId));
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (isAdmin() || isDocumentParticipant(docId));
+      allow delete: if isAdmin();
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated() && (isAdmin() || isDocumentParticipant(docId));
+        allow create: if isAuthenticated();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // Audit logs - APPEND ONLY, NEVER DELETE
+    // ─────────────────────────────────────────────
+
+    match /audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // Notifications
+    // ─────────────────────────────────────────────
+
+    match /notifications/{docId} {
+      allow read: if isAuthenticated()
+        && (get(/databases/$(database)/documents/notifications/$(docId)).data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && (get(/databases/$(database)/documents/notifications/$(docId)).data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Routing rules (admin only)
+    // ─────────────────────────────────────────────
+
+    match /routing_rules/{ruleId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Workflow config (admin only)
+    // ─────────────────────────────────────────────
+
+    match /workflow_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Companies
+    // ─────────────────────────────────────────────
+
+    match /companies/{companyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // AI feedback
+    // ─────────────────────────────────────────────
+
+    match /ai_feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}

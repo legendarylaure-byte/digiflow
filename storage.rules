@@ -1,0 +1,78 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─────────────────────────────────────────────
+    // Helper functions
+    // ─────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isValidFileType() {
+      return request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/msword|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.presentationml.presentation|application/vnd.ms-powerpoint|image/png|image/jpeg|text/plain');
+    }
+
+    function isValidFileSize() {
+      return request.resource.size < 25 * 1024 * 1024;
+    }
+
+    // ─────────────────────────────────────────────
+    // Document uploads
+    // ─────────────────────────────────────────────
+
+    match /documents/{userId}/{docId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidFileType()
+        && isValidFileSize();
+      allow update: if isAuthenticated()
+        && request.auth.uid == userId;
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Supporting documents
+    // ─────────────────────────────────────────────
+
+    match /supporting/{userId}/{docId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidFileType()
+        && isValidFileSize();
+      allow delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Approved PDFs (read-only for participants)
+    // ─────────────────────────────────────────────
+
+    match /approved/{department}/{year}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow write, delete: if isAdmin();
+    }
+
+    // ─────────────────────────────────────────────
+    // Confidential documents - restricted access
+    // ─────────────────────────────────────────────
+
+    match /confidential/{userId}/{docId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidFileType()
+        && isValidFileSize();
+      allow delete: if isAdmin();
+    }
+  }
+}
