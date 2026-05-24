@@ -8,17 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { loginWithEmail, loginWithGoogleRedirect, checkRedirectResult } from '@/lib/firebase/auth';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { Mail, Lock, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    if (authLoading) return;
+    if (isAuthenticated) {
+      router.replace('/dashboard');
+      return;
+    }
     checkRedirectResult().then((user) => {
       if (user) {
         router.replace('/dashboard');
@@ -27,12 +34,12 @@ export default function LoginPage() {
     }).catch((error: any) => {
       if (error.code === 'auth/credential-already-in-use') {
         router.replace('/dashboard');
-      } else if (error.code !== 'auth/popup-closed-by-user') {
+      } else {
         console.error('Redirect sign-in error:', error);
         toast.error('Failed to sign in with Google');
       }
     });
-  }, [router, t]);
+  }, [isAuthenticated, authLoading, router, t]);
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
