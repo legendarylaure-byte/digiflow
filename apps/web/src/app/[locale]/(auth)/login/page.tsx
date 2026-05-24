@@ -46,7 +46,12 @@ export default function LoginPage() {
       toast.success(t('loginTitle'));
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
-        toast.error('Failed to sign in with Google');
+        console.error('Google login error:', error);
+        if (error.code === 'auth/popup-blocked') {
+          toast.error('Pop-up blocked by browser. Please allow pop-ups for this site.');
+        } else {
+          toast.error(`Google sign-in failed (${error.code || 'unknown'}): ${error.message || error}`);
+        }
       }
     } finally {
       setLoading(false);
