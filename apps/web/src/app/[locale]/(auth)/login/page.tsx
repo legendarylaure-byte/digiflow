@@ -50,7 +50,7 @@ export default function LoginPage() {
         if (error.code === 'auth/popup-blocked') {
           toast.error('Pop-up blocked by browser. Please allow pop-ups for this site.');
         } else {
-          toast.error(`Google sign-in failed (${error.code || 'unknown'}): ${error.message || error}`);
+          toast.error('Failed to sign in with Google');
         }
       }
     } finally {
