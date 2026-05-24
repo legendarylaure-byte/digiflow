@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 
 const navItems = [
   { href: '/dashboard', label: 'dashboard', icon: LayoutDashboard },
