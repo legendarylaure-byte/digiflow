@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase/config';
 import { StatCard } from '@/components/ui/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { BarChart3, FileText, Users, Clock, TrendingUp } from 'lucide-react';
+import { BarChart3, FileText, Users, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 const PIE_COLORS = ['#6B7280', '#F59E0B', '#10B981', '#EF4444'];
@@ -16,17 +16,20 @@ export default function AdminAnalyticsPage() {
   const [stats, setStats] = useState({ documentsProcessed: 0, avgApprovalHours: 0, activeUsers: 0, slaCompliance: 0 });
   const [statusData, setStatusData] = useState<{ name: string; value: number }[]>([]);
   const [monthlyData, setMonthlyData] = useState<{ month: string; docs: number }[]>([]);
+  const [anomalyCount, setAnomalyCount] = useState(0);
 
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const [totalSnap, inProgressSnap, approvedSnap, returnedSnap, usersSnap] = await Promise.all([
+        const [totalSnap, inProgressSnap, approvedSnap, returnedSnap, usersSnap, anomalySnap] = await Promise.all([
           getCountFromServer(query(collection(db, 'documents'))),
           getCountFromServer(query(collection(db, 'documents'), where('status', '==', 'in_progress'))),
           getCountFromServer(query(collection(db, 'documents'), where('status', '==', 'approved'))),
           getCountFromServer(query(collection(db, 'documents'), where('status', '==', 'returned'))),
           getCountFromServer(query(collection(db, 'users'))),
+          getCountFromServer(query(collection(db, 'anomaly_alerts'), where('resolved', '==', false))),
         ]);
+        setAnomalyCount(anomalySnap.data().count);
         setStatusData([
           { name: 'Draft', value: totalSnap.data().count - approvedSnap.data().count - inProgressSnap.data().count - returnedSnap.data().count },
           { name: 'In Progress', value: inProgressSnap.data().count },
@@ -57,6 +60,7 @@ export default function AdminAnalyticsPage() {
         <StatCard label="Avg. Approval Time" value={loading ? '...' : `${stats.avgApprovalHours}h`} description="Across all workflows" icon={<Clock className="h-5 w-5" />} color="amber" />
         <StatCard label="Active Users" value={loading ? '...' : stats.activeUsers} description="Total registered users" icon={<Users className="h-5 w-5" />} color="violet" />
         <StatCard label="SLA Compliance" value={loading ? '...' : `${stats.slaCompliance}%`} description="Percentage on time" icon={<TrendingUp className="h-5 w-5" />} color={slaColor} />
+        <StatCard label="Active Anomalies" value={loading ? '...' : anomalyCount} description="Unresolved anomaly alerts" icon={<AlertTriangle className="h-5 w-5" />} color={anomalyCount > 0 ? 'rose' : 'emerald'} />
       </div>
       <Tabs value="overview" onValueChange={() => {}}>
         <TabsList>

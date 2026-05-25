@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import { db } from '../utils/firebase';
 import { logAuditEntry } from '../security/audit-logger';
 import { handleSendEmail, generateApprovalEmail } from '../email/send';
+import { notifyWorkflowParticipants, notifyAdmins } from '../notifications';
 import crypto from 'crypto';
 
 interface StartWorkflowData {
@@ -98,6 +99,14 @@ export default async function handleStartWorkflow(
   } catch (err) {
     functions.logger.warn('Failed to send initial email', err);
   }
+
+  await notifyWorkflowParticipants({
+    documentId,
+    documentName: docData.name,
+    action: 'started',
+    actorName: context.auth?.token?.name || 'Uploader',
+    targetUserId: docData.uploadedBy,
+  });
 
   await logAuditEntry({
     action: 'workflow.start',

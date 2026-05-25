@@ -9,9 +9,14 @@ out/
 dist/
 build/
 /lib/
+functions/lib/
+
+# build info
+*.tsbuildinfo
 
 # env files
 .env
+.env.yaml
 .env.local
 .env.development.local
 .env.test.local

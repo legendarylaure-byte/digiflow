@@ -15,6 +15,10 @@ export default function AdminWorkflowPage() {
           <h3 className="text-base font-medium text-white">SLA Configuration</h3>
           <p className="mt-1 text-sm text-gray-500">Set service level agreements for approval deadlines</p>
         </Link>
+        <Link href="/admin/workflow/routing-rules" className="rounded-xl border border-gray-800 bg-gray-900 p-6 hover:border-brand-500 transition-colors">
+          <h3 className="text-base font-medium text-white">Routing Rules</h3>
+          <p className="mt-1 text-sm text-gray-500">Define conditional routing rules for intelligent document assignment</p>
+        </Link>
       </div>
     </div>
   );

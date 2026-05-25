@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import { db } from '../utils/firebase';
 import { logAuditEntry } from '../security/audit-logger';
 import { handleSendEmail, generateApprovalEmail } from '../email/send';
+import { notifyWorkflowParticipants } from '../notifications';
 import crypto from 'crypto';
 
 interface ApproveActionInput {
@@ -47,6 +48,16 @@ export default async function handleApproveAction(
       [`steps.${currentStepIndex}.completedAt`]: new Date(),
       [`steps.${currentStepIndex}.comment`]: comment,
     });
+
+    await notifyWorkflowParticipants({
+      documentId,
+      documentName: doc.data()?.name || 'Document',
+      action: 'returned',
+      actorName: context.auth?.token?.name || 'User',
+      targetUserId: doc.data()?.uploadedBy,
+      stepName: steps[currentStepIndex]?.userName || `Step ${currentStepIndex + 1}`,
+    });
+
     return { success: true, nextStatus: 'returned' };
   }
 
@@ -67,10 +78,53 @@ export default async function handleApproveAction(
       [`steps.${currentStepIndex}.completedAt`]: new Date(),
       [`steps.${currentStepIndex}.comment`]: comment,
     });
+
+    await notifyWorkflowParticipants({
+      documentId,
+      documentName: doc.data()?.name || 'Document',
+      action: 'completed',
+      actorName: context.auth?.token?.name || 'User',
+      targetUserId: doc.data()?.uploadedBy,
+    });
+
+    // Generate stamped PDF
+    try {
+      const { stampApprovedPdf: stampFn } = await import('../pdf/converter');
+      await stampFn(
+        {
+          documentId,
+          approvedBy: userId,
+          approvedByName: context.auth?.token?.name || 'Unknown',
+          approvedAt: new Date().toISOString(),
+        },
+        context,
+      );
+    } catch (err) {
+      functions.logger.warn('Failed to generate stamped PDF', err);
+    }
   } else {
     const nextStep = currentStepIndex + 1;
-    const nextUserId = steps[nextStep].userId;
+    let nextUserId = steps[nextStep].userId;
     const nextStepData = steps[nextStep];
+
+    // Check for OOO delegation
+    try {
+      const userDoc = await db.collection('users').doc(nextUserId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data()!;
+        const delegation = userData.delegatedTo;
+        if (delegation?.uid && delegation?.endDate) {
+          const endDate = delegation.endDate.toDate ? delegation.endDate.toDate() : new Date(delegation.endDate);
+          if (endDate > new Date()) {
+            nextUserId = delegation.uid;
+            functions.logger.info(`OOO delegation: ${steps[nextStep].userId} → ${delegation.uid}`);
+          }
+        }
+      }
+    } catch (err) {
+      functions.logger.warn('Failed to check delegation', err);
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     const baseUrl = process.env.APP_URL || 'https://digiflow.vercel.app';
 
@@ -105,6 +159,15 @@ export default async function handleApproveAction(
     } catch (err) {
       functions.logger.warn('Failed to send email to next approver', err);
     }
+
+    await notifyWorkflowParticipants({
+      documentId,
+      documentName: doc.data()?.name || 'Document',
+      action: 'step_completed',
+      actorName: context.auth?.token?.name || 'User',
+      targetUserId: doc.data()?.uploadedBy,
+      stepName: steps[currentStepIndex]?.userName || `Step ${currentStepIndex + 1}`,
+    });
 
     await docRef.update({
       status: 'in_progress',

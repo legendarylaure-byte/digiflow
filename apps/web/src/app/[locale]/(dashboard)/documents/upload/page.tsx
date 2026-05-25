@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, X, Loader2, Plus } from 'lucide-react';
+import { Upload, FileText, X, Loader2, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { AutoFillBanner } from '@/components/ai/auto-fill-banner';
 import { uploadAndExtract } from '@/lib/ai/extractor';
+import { aiSuggestRouting } from '@/lib/ai/routing';
 import { db } from '@/lib/firebase/config';
 import { collection, addDoc } from 'firebase/firestore';
 import { auth } from '@/lib/firebase/config';
@@ -54,6 +55,30 @@ export default function UploadDocumentPage() {
     },
     [],
   );
+
+  const [routingLoading, setRoutingLoading] = useState(false);
+
+  const handleAiSuggest = async () => {
+    setRoutingLoading(true);
+    try {
+      const result = await aiSuggestRouting({
+        documentType: formData.documentType || undefined,
+        department: formData.department || undefined,
+        isConfidential: formData.isConfidential || undefined,
+        description: formData.description || undefined,
+      });
+      const roles = result.data.suggestedRoles;
+      if (roles.length > 0) setFormData((prev) => ({ ...prev, recommender1: roles[0] }));
+      if (roles.length > 1) setFormData((prev) => ({ ...prev, recommender2: roles[1] }));
+      if (roles.length > 2) setFormData((prev) => ({ ...prev, recommender3: roles[2] }));
+      if (result.data.suggestedApprover) setFormData((prev) => ({ ...prev, approver: result.data.suggestedApprover }));
+      toast.success(result.data.explanation || 'Routing suggestion applied');
+    } catch {
+      toast.error('Failed to get routing suggestion');
+    } finally {
+      setRoutingLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,6 +310,11 @@ export default function UploadDocumentPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Button type="button" variant="outline" className="w-full" onClick={handleAiSuggest} disabled={routingLoading}>
+          {routingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-brand-500" />}
+          AI Suggest Routing
+        </Button>
 
         <Button type="submit" className="w-full" size="lg" disabled={uploading || !file}>
           {uploading ? (

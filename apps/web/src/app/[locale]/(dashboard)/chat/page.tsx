@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,10 +13,18 @@ interface Message {
   content: string;
 }
 
+interface ChatResponse {
+  reply: string;
+  sources?: string[];
+  suggestedActions?: string[];
+}
+
 const WELCOME: Message = {
   role: 'assistant',
   content: "Hello! I'm DigiFlow AI. I can help you find documents, check workflow status, and answer questions about the system. Try asking:\n\n- \"Where is the IT Budget Proposal?\"\n- \"Show me documents approved by Hari\"\n- \"What's the status of VOM00001?\"",
 };
+
+const aiChat = httpsCallable<{ message: string; documentId?: string }, ChatResponse>(functions, 'aiChat');
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
@@ -35,15 +45,21 @@ export default function ChatPage() {
     setInput('');
     setLoading(true);
 
-    // Simulate AI response (replace with actual Gemini API call)
-    setTimeout(() => {
+    try {
+      const result = await aiChat({ message: input });
       const response: Message = {
         role: 'assistant',
-        content: `I found the document you're looking for. Here are the results based on your query: "${input}".\n\n> **IT Budget Proposal** (VOM00001-2026)\n> Status: In Progress\n> Currently with: Ram Sharma (Recommender #1)\n> Created: 13 May 2026\n\nYou can [view this document](/documents/1) for more details.`,
+        content: result.data.reply,
       };
       setMessages((prev) => [...prev, response]);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Error: ${err.message || 'Failed to get response'}` },
+      ]);
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   }
 
   return (

@@ -4,8 +4,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslations } from 'next-intl';
 import { usePathname } from '@/i18n/routing';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/layout/language-switcher';
+import { NotificationDropdown } from '@/components/notifications/notification-dropdown';
+import { CommandPalette } from '@/components/layout/command-palette';
 
 export function Header() {
   const t = useTranslations('common');
@@ -34,7 +36,10 @@ export function Header() {
 
       <div className="flex items-center gap-3">
         {/* Search */}
-        <button className="hidden md:flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-400 hover:border-gray-300 transition-colors">
+        <button
+          onClick={() => document.dispatchEvent(new CustomEvent('open-command-palette'))}
+          className="hidden md:flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-400 hover:border-gray-300 transition-colors"
+        >
           <Search className="h-4 w-4" />
           <span>{t('search')}</span>
           <kbd className="ml-4 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs text-gray-400">
@@ -46,10 +51,7 @@ export function Header() {
         <LanguageSwitcher />
 
         {/* Notifications */}
-        <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
+        <NotificationDropdown />
 
         {/* Profile */}
         <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-brand-100">
@@ -57,6 +59,7 @@ export function Header() {
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
       </div>
+      <CommandPalette />
     </header>
   );
 }

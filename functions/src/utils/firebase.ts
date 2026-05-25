@@ -3,29 +3,52 @@ import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage, Storage } from 'firebase-admin/storage';
 
-let app: App;
-let db: Firestore;
-let storage: Storage;
+let _app: App | undefined;
+let _db: Firestore | undefined;
+let _storage: Storage | undefined;
 
-const adminConfig = {
-  projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-};
+function init() {
+  if (_app) return;
+  const existing = getApps();
+  if (existing.length) {
+    _app = existing[0];
+    _db = getFirestore(_app);
+    _storage = getStorage(_app);
+    return;
+  }
 
-if (!getApps().length) {
-  app = initializeApp({
-    credential: cert(adminConfig),
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  });
-} else {
-  app = getApps()[0];
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (projectId && clientEmail && privateKey) {
+    _app = initializeApp({
+      credential: cert({ projectId, clientEmail, privateKey }),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
+  } else {
+    _app = initializeApp({});
+  }
+  _db = getFirestore(_app);
+  _db.settings({ ignoreUndefinedProperties: true });
+  _storage = getStorage(_app);
 }
 
-db = getFirestore(app);
-storage = getStorage(app);
+const db = new Proxy({} as Firestore, {
+  get(_, prop) {
+    init();
+    const val = (_db as any)[prop];
+    return typeof val === 'function' ? val.bind(_db) : val;
+  },
+});
 
-db.settings({ ignoreUndefinedProperties: true });
+const storage = new Proxy({} as Storage, {
+  get(_, prop) {
+    init();
+    const val = (_storage as any)[prop];
+    return typeof val === 'function' ? val.bind(_storage) : val;
+  },
+});
 
-export { app, db, storage };
+export { _app as app, db, storage };
 export const functionsConfig = functions.config();

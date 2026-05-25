@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils/cn';
 import {
   LayoutDashboard, Users, Shield, GitBranch, Building2, BarChart3, FileSearch,
-  Bell, Cpu, Database, ChevronRight, Menu, X, LogOut, ArrowLeft,
+  Bell, Cpu, Database, AlertTriangle, ChevronRight, Menu, X, LogOut, ArrowLeft,
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 
@@ -20,6 +20,7 @@ const navItems = [
   { href: '/admin/audit', label: 'Audit Log', icon: FileSearch },
   { href: '/admin/notifications', label: 'Notifications', icon: Bell },
   { href: '/admin/ai-config', label: 'AI Config', icon: Cpu },
+  { href: '/admin/anomaly-alerts', label: 'Anomaly Alerts', icon: AlertTriangle },
   { href: '/admin/backup', label: 'Backup', icon: Database },
 ];
 

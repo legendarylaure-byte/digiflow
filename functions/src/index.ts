@@ -112,6 +112,24 @@ export const aiAutoFill = functions.https.onCall(async (data, context) => {
   return handleAutoFill(data, context);
 });
 
+export const aiSuggestRouting = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { default: handleRoutingSuggestion } = await import('./ai/routing');
+  return handleRoutingSuggestion(data, context);
+});
+
+export const aiSmartReply = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { default: handleSmartReply } = await import('./ai/smart-reply');
+  return handleSmartReply(data, context);
+});
+
 export const aiSummarize = functions.storage
   .object()
   .onFinalize(async (object) => {
@@ -175,8 +193,17 @@ export const convertToPdf = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
   }
 
-  const { default: handlePdfConversion } = await import('./pdf/converter');
+  const { handlePdfConversion } = await import('./pdf/converter');
   return handlePdfConversion(data, context);
+});
+
+export const stampApprovedPdf = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { stampApprovedPdf: stampFn } = await import('./pdf/converter');
+  return stampFn(data, context);
 });
 
 // ─────────────────────────────────────────────

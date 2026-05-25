@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc, collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { AI_FEATURES } from '@digiflow/shared';
-import { Cpu, Sparkles, Brain, FileSearch, Tag, Route, AlertTriangle, FileText, MessageSquare, GitCompare, BarChart3, Stars } from 'lucide-react';
+import { Cpu, Sparkles, Brain, FileSearch, Tag, Route, AlertTriangle, FileText, MessageSquare, GitCompare, BarChart3, Stars, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const FEATURE_ICONS: Record<string, React.ReactNode> = {
   chatbot: <MessageSquare className="h-5 w-5" />, auto_summarize: <FileText className="h-5 w-5" />,
@@ -25,13 +29,52 @@ const FEATURE_DESCRIPTIONS: Record<string, string> = {
 };
 
 export default function AdminAiConfigPage() {
-  const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean>>(() => Object.fromEntries(AI_FEATURES.map((f) => [f, true])));
+  const { user } = useAuth();
+  const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  const toggle = (feature: string) => setEnabledFeatures((prev) => ({ ...prev, [feature]: !prev[feature] }));
+  useEffect(() => {
+    if (!user) return;
+    const ref = doc(db, 'ai_config', 'features');
+    getDoc(ref).then((snap) => {
+      if (snap.exists()) {
+        setEnabledFeatures(snap.data() as Record<string, boolean>);
+      } else {
+        setEnabledFeatures(Object.fromEntries(AI_FEATURES.map((f) => [f, true])));
+      }
+      setLoaded(true);
+    });
+  }, [user]);
+
+  const toggle = async (feature: string) => {
+    const next = { ...enabledFeatures, [feature]: !enabledFeatures[feature] };
+    setEnabledFeatures(next);
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'ai_config', 'features'), next);
+    } catch {
+      toast.error('Failed to save');
+      setEnabledFeatures(enabledFeatures);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2"><Brain className="h-6 w-6 text-brand-400" /><h1 className="text-2xl font-bold text-white">AI Configuration</h1></div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2"><Brain className="h-6 w-6 text-brand-400" /><h1 className="text-2xl font-bold text-white">AI Configuration</h1></div>
+        {saving && <Badge variant="default"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Saving...</Badge>}
+      </div>
       <p className="text-gray-400">Configure AI features and Gemini API settings</p>
       <div className="flex items-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-4 py-3">
         <Stars className="h-4 w-4 text-amber-400" />

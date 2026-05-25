@@ -2,6 +2,7 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { getFunctions, type Functions } from 'firebase/functions';
 import { getAnalytics, type Analytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -18,6 +19,7 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
+let functions: Functions;
 let analytics: Analytics | null = null;
 
 if (!getApps().length) {
@@ -25,11 +27,13 @@ if (!getApps().length) {
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+  functions = getFunctions(app, 'us-central1');
 } else {
   app = getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
+  functions = getFunctions(app, 'us-central1');
 }
 
 if (typeof window !== 'undefined') {
@@ -40,4 +44,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { app, auth, db, storage, analytics };
+export { app, auth, db, storage, functions, analytics };

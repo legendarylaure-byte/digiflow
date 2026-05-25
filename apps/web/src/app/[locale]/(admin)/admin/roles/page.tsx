@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ROLES } from '@digiflow/shared';
-import { Shield, CheckCircle2, XCircle } from 'lucide-react';
+import { Shield, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PERMISSION_GROUPS = [
@@ -27,8 +30,25 @@ const DEFAULT_PERMISSIONS: Record<string, Record<string, Record<string, boolean>
 };
 
 export default function AdminRolesPage() {
+  const { user } = useAuth();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [permissions, setPermissions] = useState(DEFAULT_PERMISSIONS);
+  const [permissions, setPermissions] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const ref = doc(db, 'roles', 'permissions');
+    getDoc(ref).then((snap) => {
+      if (snap.exists()) {
+        setPermissions(snap.data() as Record<string, Record<string, Record<string, boolean>>>);
+      } else {
+        setPermissions(DEFAULT_PERMISSIONS);
+      }
+      setLoaded(true);
+    });
+  }, [user]);
 
   const togglePerm = (role: string, group: string, perm: string) => {
     if (role === 'admin') return;
@@ -37,14 +57,39 @@ export default function AdminRolesPage() {
       updated[role] = { ...updated[role], [group]: { ...updated[role]?.[group], [perm]: !updated[role]?.[group]?.[perm] } };
       return updated;
     });
+    setDirty(true);
   };
 
-  const roleInfo = ROLES.find((r) => r.value === selectedRole);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'roles', 'permissions'), permissions);
+      toast.success('Permissions saved');
+      setDirty(false);
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const roleInfo = selectedRole ? ROLES.find((r) => r.value === selectedRole) : null;
   const rolePerms = selectedRole ? permissions[selectedRole] : null;
+
+  if (!loaded) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold text-white">Roles & Permissions</h1><p className="text-gray-400">Define roles and their access permissions</p></div>
+      <div className="flex items-center justify-between">
+        <div><h1 className="text-2xl font-bold text-white">Roles & Permissions</h1><p className="text-gray-400">Define roles and their access permissions</p></div>
+        {dirty && <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}Save Changes</Button>}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ROLES.map((role) => (
           <button key={role.value} onClick={() => setSelectedRole(role.value === selectedRole ? null : role.value)}
@@ -85,7 +130,6 @@ export default function AdminRolesPage() {
               </div>
             ))}
           </div>
-          {selectedRole !== 'admin' && <div className="mt-6 flex justify-end"><Button onClick={() => toast.success('Permissions saved')}>Save Permissions</Button></div>}
         </div>
       )}
     </div>
